@@ -3,7 +3,7 @@ const poolL=require("../config/database")
 function GetAreas(req, resp) {
 
 poolL.query(
-  `SELECT "AreasTrabajos"."NombreArea" FROM "AreasTrabajos"`,
+  `SELECT "AreasTrabajos"."nombre_area" FROM "AreasTrabajos"`,
   (err, res) => {
     if (err) {
       resp.status(err.status || 500).json({ error: err.message });
@@ -17,7 +17,7 @@ poolL.query(
 
 function GetAreaById(req, resp) {
   poolL.query(
-    `SELECT "AreasTrabajos"."NombreArea" FROM "AreasTrabajos" WHERE "AreasTrabajos"."id" = $1`,
+    `SELECT "AreasTrabajos"."nombre_area" FROM "AreasTrabajos" WHERE "AreasTrabajos"."id" = $1`,
     [req.params.id],
     (err, res) => {
       if (err) {
@@ -32,8 +32,8 @@ function GetAreaById(req, resp) {
 ;
 function PostAreaByName(req, resp) {
   poolL.query(
-    `INSERT INTO "AreasTrabajos"("NombreArea") VALUES ($1) RETURNING *`,
-    [req.body.NombreArea],
+    `INSERT INTO "AreasTrabajos"("nombre_area") VALUES ($1) RETURNING *`,
+    [req.body.nombre_area],
     (err, res) => {
       if (err) {
         resp.status(err.status || 500).json({ error: err.message });
@@ -46,8 +46,8 @@ function PostAreaByName(req, resp) {
 }
 ;
 function PutAreaById(req, resp) {
- const nombreArea=req.body.NombreArea;
- const activo=req.body.Activo;
+ const nombreArea=req.body.nombre_area;
+ const activo=req.body.activo;
  const id=req.params.id;
 
  let comandoSQL;
@@ -56,18 +56,18 @@ function PutAreaById(req, resp) {
 
  if(nombreArea && activo!==undefined){
 
-  comandoSQL= `UPDATE "AreasTrabajos" SET "NombreArea"=$1, "Activo"=$2 WHERE "id"=$3 `;
+  comandoSQL= `UPDATE "AreasTrabajos" SET "nombre_area"=$1, "activo"=$2 WHERE "id"=$3 `;
   valores=[nombreArea, activo, id];
 
  }
  else if(nombreArea){
-  comandoSQL=`UPDATE "AreasTrabajos" SET "NombreArea"=$1 Where "id"=$2`;
+  comandoSQL=`UPDATE "AreasTrabajos" SET "nombre_area"=$1 Where "id"=$2`;
   valores=[nombreArea, id];
 
  }
   else if(activo!==undefined  ){
 
-  comandoSQL=`UPDATE "AreasTrabajos" SET "Activo"=$1 Where "id"=$2`;
+  comandoSQL=`UPDATE "AreasTrabajos" SET "activo"=$1 Where "id"=$2`;
   valores=[activo, id];
   }
   else{
