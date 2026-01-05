@@ -7,14 +7,15 @@ function GetReportes(req, resp) {
       r."id",
       r."created_at",
       r."horas",
+      r."fecha_trabajada",
       r."cliente",
       r."documento_id",
       r."area_trabajo",
       c."nombre_company",
       a."nombre_area"
     FROM "Reportes" r
-    LEFT JOIN "Companies" c ON r."cliente" = c."id"::text
-    LEFT JOIN "AreasTrabajos" a ON r."area_trabajo" = a."id"
+    LEFT JOIN "Companies" c ON r."cliente" = c."elemento_pep"
+    LEFT JOIN "AreasTrabajos" a ON r."area_trabajo" = a."id"::text
     ORDER BY r."created_at" DESC`,
         (err, res) => {
             if (err) {
@@ -34,14 +35,15 @@ function GetReporteById(req, resp) {
       r."id",
       r."created_at",
       r."horas",
+      r."fecha_trabajada",
       r."cliente",
       r."documento_id",
       r."area_trabajo",
       c."nombre_company",
       a."nombre_area"
     FROM "Reportes" r
-    LEFT JOIN "Companies" c ON r."cliente" = c."id"::text
-    LEFT JOIN "AreasTrabajos" a ON r."area_trabajo" = a."id"
+    LEFT JOIN "Companies" c ON r."cliente" = c."elemento_pep"
+    LEFT JOIN "AreasTrabajos" a ON r."area_trabajo" = a."id"::text
     WHERE r."id" = $1`,
         [req.params.id],
         (err, res) => {
@@ -57,22 +59,29 @@ function GetReporteById(req, resp) {
 
 // GET reportes by documento_id (útil para ver reportes de un empleado)
 function GetReportesByDocumento(req, resp) {
+    const documentoId = parseInt(req.params.documentoId);
+
+    if (isNaN(documentoId)) {
+        return resp.status(400).json({ error: "El documento debe ser un número válido" });
+    }
+
     poolL.query(
         `SELECT 
       r."id",
       r."created_at",
       r."horas",
+      r."fecha_trabajada",
       r."cliente",
       r."documento_id",
       r."area_trabajo",
       c."nombre_company",
       a."nombre_area"
     FROM "Reportes" r
-    LEFT JOIN "Companies" c ON r."cliente" = c."id"::text
-    LEFT JOIN "AreasTrabajos" a ON r."area_trabajo" = a."id"
+    LEFT JOIN "Companies" c ON r."cliente" = c."elemento_pep"
+    LEFT JOIN "AreasTrabajos" a ON r."area_trabajo" = a."id"::text
     WHERE r."documento_id" = $1
     ORDER BY r."created_at" DESC`,
-        [req.params.documentoId],
+        [documentoId],
         (err, res) => {
             if (err) {
                 resp.status(err.status || 500).json({ error: err.message });
@@ -91,14 +100,15 @@ function GetReportesByCliente(req, resp) {
       r."id",
       r."created_at",
       r."horas",
+      r."fecha_trabajada",
       r."cliente",
       r."documento_id",
       r."area_trabajo",
       c."nombre_company",
       a."nombre_area"
     FROM "Reportes" r
-    LEFT JOIN "Companies" c ON r."cliente" = c."id"::text
-    LEFT JOIN "AreasTrabajos" a ON r."area_trabajo" = a."id"
+    LEFT JOIN "Companies" c ON r."cliente" = c."elemento_pep"
+    LEFT JOIN "AreasTrabajos" a ON r."area_trabajo" = a."id"::text
     WHERE r."cliente" = $1
     ORDER BY r."created_at" DESC`,
         [req.params.clienteId],
@@ -115,11 +125,11 @@ function GetReportesByCliente(req, resp) {
 
 // POST create new reporte
 function PostReporte(req, resp) {
-    const { horas, cliente, documento_id, area_trabajo } = req.body;
+    const { horas, fecha_trabajada, cliente, documento_id, area_trabajo } = req.body;
 
     poolL.query(
-        `INSERT INTO "Reportes"("horas", "cliente", "documento_id", "area_trabajo") VALUES ($1, $2, $3, $4) RETURNING *`,
-        [horas, cliente, documento_id, area_trabajo],
+        `INSERT INTO "Reportes"("horas", "fecha_trabajada", "cliente", "documento_id", "area_trabajo") VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+        [horas, fecha_trabajada, cliente, documento_id, area_trabajo],
         (err, res) => {
             if (err) {
                 resp.status(err.status || 500).json({ error: err.message });
@@ -133,7 +143,7 @@ function PostReporte(req, resp) {
 
 // PUT update reporte by ID
 function PutReporteById(req, resp) {
-    const { horas, cliente, documento_id, area_trabajo } = req.body;
+    const { horas, fecha_trabajada, cliente, documento_id, area_trabajo } = req.body;
     const id = req.params.id;
 
     // Construir la consulta dinámicamente
@@ -149,6 +159,11 @@ function PutReporteById(req, resp) {
     if (cliente !== undefined) {
         campos.push(`"cliente"=$${contador}`);
         valores.push(cliente);
+        contador++;
+    }
+    if (fecha_trabajada !== undefined) {
+        campos.push(`"fecha_trabajada"=$${contador}`);
+        valores.push(fecha_trabajada);
         contador++;
     }
     if (documento_id !== undefined) {

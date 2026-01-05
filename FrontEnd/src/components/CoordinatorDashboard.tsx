@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { LogOut, Clock, CheckCircle } from 'lucide-react';
+import { LogOut, Clock, CheckCircle, Loader2 } from 'lucide-react';
 import { CalendarHoursEntry } from './CalendarHoursEntry';
 import { CalendarInstructions } from './CalendarInstructions';
 import { HoursHistoryByDate } from './HoursHistoryByDate';
 import { PayrollReview } from './PayrollReview';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { companiesAPI, areasEnCompanyAPI } from '../services/api';
 import type { User } from '../App';
 
 interface CoordinatorDashboardProps {
@@ -22,17 +23,50 @@ export interface HoursRecord {
   areaCliente?: string;
 }
 
+interface Cliente {
+  id: string;
+  nombre: string;
+  elementoPEP: string;
+  areas: string[];
+}
+
 export function CoordinatorDashboard({ user, onLogout }: CoordinatorDashboardProps) {
   const [hoursRecords, setHoursRecords] = useState<HoursRecord[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const mockClientes = [
-    { id: 'C001', nombre: 'Cliente A', elementoPEP: 'PEP-001', areas: ['Desarrollo', 'Soporte'] },
-    { id: 'C002', nombre: 'Cliente B', elementoPEP: 'PEP-002', areas: ['Consultoría', 'Capacitación'] },
-    { id: 'C003', nombre: 'Cliente C', elementoPEP: 'PEP-003', areas: ['Desarrollo', 'Consultoría', 'Soporte'] },
-  ];
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const companiesData = await companiesAPI.getAll();
+
+      const clientesWithAreas: Cliente[] = await Promise.all(
+        companiesData.map(async (company) => {
+          const areasData = await areasEnCompanyAPI.getByCompany(company.id);
+          return {
+            id: company.id,
+            nombre: company.nombre_company,
+            elementoPEP: company.elemento_pep,
+            areas: areasData.map(a => a.nombre_area || ''),
+          };
+        })
+      );
+
+      setClientes(clientesWithAreas);
+      // TODO: Load coordinator specific records if needed
+    } catch (err) {
+      console.error('Error loading data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSaveHours = (clienteId: string, horas: number, fecha: Date, areaCliente?: string) => {
-    const cliente = mockClientes.find(c => c.id === clienteId);
+    const cliente = clientes.find(c => c.elementoPEP === clienteId);
     if (cliente) {
       const newRecord: HoursRecord = {
         clienteId,
@@ -46,6 +80,15 @@ export function CoordinatorDashboard({ user, onLogout }: CoordinatorDashboardPro
   };
 
   const totalHoras = hoursRecords.reduce((sum, record) => sum + record.horas, 0);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="w-8 h-8 animate-spin text-[#303483]" />
+        <span className="ml-2 text-gray-600">Cargando datos...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -81,9 +124,9 @@ export function CoordinatorDashboard({ user, onLogout }: CoordinatorDashboardPro
 
           <TabsContent value="hours" className="space-y-6">
             <CalendarInstructions />
-            
-            <CalendarHoursEntry 
-              clientes={mockClientes}
+
+            <CalendarHoursEntry
+              clientes={clientes}
               onSave={handleSaveHours}
               existingRecords={hoursRecords}
             />

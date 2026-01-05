@@ -53,6 +53,12 @@ function GetUsuarioById(req, resp) {
 
 // GET usuario by documento_id (para login)
 function GetUsuarioByDocumento(req, resp) {
+    const documentoId = parseInt(req.params.documentoId);
+
+    if (isNaN(documentoId)) {
+        return resp.status(400).json({ error: "El documento debe ser un número válido" });
+    }
+
     poolL.query(
         `SELECT 
       u."id",
@@ -66,7 +72,7 @@ function GetUsuarioByDocumento(req, resp) {
     FROM "Usuarios" u
     LEFT JOIN "roles" r ON u."rol" = r."id"
     WHERE u."documento_id" = $1`,
-        [req.params.documentoId],
+        [documentoId],
         (err, res) => {
             if (err) {
                 resp.status(err.status || 500).json({ error: err.message });

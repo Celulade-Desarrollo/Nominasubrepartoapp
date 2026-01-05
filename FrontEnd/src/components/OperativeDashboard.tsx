@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { format } from 'date-fns';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { LogOut, Clock, CheckCircle2 } from 'lucide-react';
+import { LogOut, Clock, CheckCircle2, Loader2 } from 'lucide-react';
 import { CalendarHoursEntry } from './CalendarHoursEntry';
 import { CalendarInstructions } from './CalendarInstructions';
 import { HoursHistoryByDate } from './HoursHistoryByDate';
 import { Alert, AlertDescription } from './ui/alert';
+import { companiesAPI, areasEnCompanyAPI, reportesAPI } from '../services/api';
 import type { User } from '../App';
 
 interface OperativeDashboardProps {
@@ -14,40 +16,129 @@ interface OperativeDashboardProps {
 }
 
 export interface SimpleHoursRecord {
+  id?: number;
   clienteId: string;
   clienteNombre: string;
   elementoPEP: string;
   horas: number;
   fecha: string;
   areaCliente?: string;
+  documentoId?: number;
+}
+
+interface Cliente {
+  id: string;
+  nombre: string;
+  elementoPEP: string;
+  areas: string[];
 }
 
 export function OperativeDashboard({ user, onLogout }: OperativeDashboardProps) {
   const [hoursRecords, setHoursRecords] = useState<SimpleHoursRecord[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock data - en producción vendría del backend
-  const mockClientes = [
-    { id: 'C001', nombre: 'Cliente A', elementoPEP: 'PEP-001', areas: ['Desarrollo', 'Soporte'] },
-    { id: 'C002', nombre: 'Cliente B', elementoPEP: 'PEP-002', areas: ['Consultoría', 'Capacitación'] },
-    { id: 'C003', nombre: 'Cliente C', elementoPEP: 'PEP-003', areas: ['Desarrollo', 'Consultoría', 'Soporte'] },
-    { id: 'C004', nombre: 'Cliente D', elementoPEP: 'PEP-004', areas: ['Mantenimiento', 'Soporte'] },
-  ];
+  // Load initial data
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  const handleSaveHours = (clienteId: string, horas: number, fecha: Date, areaCliente?: string) => {
-    const cliente = mockClientes.find(c => c.id === clienteId);
-    if (cliente) {
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      // Load companies and their areas
+      const companiesData = await companiesAPI.getAll();
+
+      const clientesWithAreas: Cliente[] = await Promise.all(
+        companiesData.map(async (company) => {
+          const areasData = await areasEnCompanyAPI.getByCompany(company.id);
+          return {
+            id: company.id,
+            nombre: company.nombre_company,
+            elementoPEP: company.elemento_pep,
+            areas: areasData.map(a => a.nombre_area || ''),
+          };
+        })
+      );
+
+      setClientes(clientesWithAreas);
+
+      // Load existing reports for this user
+      if (user.cedula) {
+        const documentoId = parseInt(user.cedula);
+        const reportes = await reportesAPI.getByDocumento(documentoId);
+
+        const mappedRecords: SimpleHoursRecord[] = reportes.map(r => ({
+          id: r.id,
+          clienteId: r.cliente,
+          clienteNombre: r.nombre_company || 'Desconocido',
+          elementoPEP: '', // We would need to join this or fetch it, currently optional in UI
+          horas: parseFloat(r.horas.toString()),
+          // Use fecha_trabajada if available, otherwise fallback to created_at
+          fecha: r.fecha_trabajada ? new Date(r.fecha_trabajada).toISOString().split('T')[0] : new Date(r.created_at).toISOString().split('T')[0],
+          areaCliente: r.nombre_area,
+          documentoId: r.documento_id
+        }));
+
+        setHoursRecords(mappedRecords);
+      }
+
+    } catch (err) {
+      console.error('Error loading data:', err);
+      setError('Error al cargar datos del servidor');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveHours = async (clienteId: string, horas: number, fecha: Date, areaCliente?: string) => {
+    try {
+      // clienteId receives the elementoPEP now
+      const cliente = clientes.find(c => c.elementoPEP === clienteId);
+      if (!cliente) return;
+
+      // Find area ID based on name (reverse lookup needed because select uses names)
+      // Ideally we should use IDs everywhere, but for now we look it up
+      // We need to fetch the specific area-company relation to get the ID
+      // This is a bit inefficient, in a refactor we should pass IDs
+      let areaTrabajoId = 0;
+
+      if (areaCliente) {
+        // We need the UUID to fetch areas, so we use cliente.id
+        const areas = await areasEnCompanyAPI.getByCompany(cliente.id);
+        const foundArea = areas.find(a => a.nombre_area === areaCliente);
+        if (foundArea) {
+          areaTrabajoId = foundArea.area_cliente; // ID from the relation table
+        }
+      }
+
+      await reportesAPI.create({
+        horas: horas,
+        fecha_trabajada: format(fecha, 'yyyy-MM-dd'),
+        cliente: clienteId,
+        documento_id: parseInt(user.cedula),
+        area_trabajo: areaTrabajoId
+      });
+
+      // Update local state
       const newRecord: SimpleHoursRecord = {
         clienteId,
         clienteNombre: cliente.nombre,
-        elementoPEP: cliente.elementoPEP,
+        elementoPEP: '', // Keep PEP hidden for operatives as requested
         horas,
         fecha: fecha.toISOString().split('T')[0],
         areaCliente,
       };
+
       setHoursRecords([...hoursRecords, newRecord]);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
+
+    } catch (err) {
+      console.error('Error saving hours:', err);
+      setError('Error al guardar el reporte');
     }
   };
 
@@ -56,6 +147,15 @@ export function OperativeDashboard({ user, onLogout }: OperativeDashboardProps) 
     .reduce((sum, record) => sum + record.horas, 0);
 
   const totalHoras = hoursRecords.reduce((sum, record) => sum + record.horas, 0);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="w-8 h-8 animate-spin text-[#303483]" />
+        <span className="ml-2 text-gray-600">Cargando datos...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -78,7 +178,13 @@ export function OperativeDashboard({ user, onLogout }: OperativeDashboardProps) 
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-6">
-          {/* Success Message */}
+          {/* Messages */}
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
           {showSuccess && (
             <Alert className="bg-[#bbd531]/20 border-[#bbd531]">
               <CheckCircle2 className="h-4 w-4 text-[#303483]" />
@@ -119,8 +225,8 @@ export function OperativeDashboard({ user, onLogout }: OperativeDashboardProps) 
           <CalendarInstructions />
 
           {/* Hours Entry */}
-          <CalendarHoursEntry 
-            clientes={mockClientes}
+          <CalendarHoursEntry
+            clientes={clientes}
             onSave={handleSaveHours}
             existingRecords={hoursRecords}
           />

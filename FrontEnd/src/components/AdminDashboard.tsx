@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { LogOut, Upload, FileSpreadsheet, Calculator } from 'lucide-react';
+import { LogOut, Upload, FileSpreadsheet, Calculator, Loader2 } from 'lucide-react';
 import { ExcelUpload } from './ExcelUpload';
 import { QuickAdd } from './QuickAdd';
 import { PayrollDistribution } from './PayrollDistribution';
 import { PayrollClosure } from './PayrollClosure';
+import { ClientesManager } from './ClientesManager';
+import { companiesAPI, areasEnCompanyAPI, type Company } from '../services/api';
 import type { User } from '../App';
 
 interface AdminDashboardProps {
@@ -25,7 +27,7 @@ export interface Cliente {
   id: string;
   nombre: string;
   elementoPEP: string;
-  areas: string[]; // Áreas o procesos del cliente
+  areas: string[];
 }
 
 export interface HorasTrabajadas {
@@ -33,13 +35,45 @@ export interface HorasTrabajadas {
   clienteId: string;
   horas: number;
   fecha: string;
-  areaCliente?: string; // Área del cliente o proceso
+  areaCliente?: string;
 }
 
 export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [horasTrabajadas, setHorasTrabajadas] = useState<HorasTrabajadas[]>([]);
+  const [loadingClientes, setLoadingClientes] = useState(true);
+
+  // Load clients from API on mount
+  useEffect(() => {
+    loadClientesFromAPI();
+  }, []);
+
+  const loadClientesFromAPI = async () => {
+    try {
+      setLoadingClientes(true);
+      const companies = await companiesAPI.getAll();
+
+      // Convert API companies to Cliente format (with areas)
+      const clientesWithAreas: Cliente[] = await Promise.all(
+        companies.map(async (company) => {
+          const areasData = await areasEnCompanyAPI.getByCompany(company.id);
+          return {
+            id: company.id,
+            nombre: company.nombre_company,
+            elementoPEP: company.elemento_pep,
+            areas: areasData.map(a => a.nombre_area || ''),
+          };
+        })
+      );
+
+      setClientes(clientesWithAreas);
+    } catch (err) {
+      console.error('Error loading clients:', err);
+    } finally {
+      setLoadingClientes(false);
+    }
+  };
 
   const handleExcelUpload = (data: Employee[]) => {
     setEmployees(data);
@@ -49,12 +83,13 @@ export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
     setEmployees([...employees, employee]);
   };
 
-  const handleAddCliente = (cliente: Cliente) => {
-    setClientes([...clientes, cliente]);
-  };
-
   const handleAddHoras = (horas: HorasTrabajadas) => {
     setHorasTrabajadas([...horasTrabajadas, horas]);
+  };
+
+  const handleCompanyChange = () => {
+    // Reload clients when a company is modified
+    loadClientesFromAPI();
   };
 
   return (
@@ -118,7 +153,7 @@ export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <QuickAdd onAdd={handleAddEmployee} />
+                <QuickAdd onAdd={handleAddEmployee as (data: Employee | Cliente) => void} />
               </CardContent>
             </Card>
 
@@ -158,70 +193,49 @@ export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
           <TabsContent value="clients">
             <Card>
               <CardHeader>
-                <CardTitle>Gestión de Clientes y Elementos PEP</CardTitle>
+                <CardTitle>Gestión de Clientes y Áreas</CardTitle>
                 <CardDescription>
-                  Administra clientes y sus elementos PEP
+                  Administra compañías clientes, elementos PEP y áreas de trabajo
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <QuickAdd 
-                  onAdd={handleAddCliente} 
-                  type="cliente"
-                />
-
-                {clientes.length > 0 && (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left p-2">ID</th>
-                          <th className="text-left p-2">Nombre Cliente</th>
-                          <th className="text-left p-2">Elemento PEP</th>
-                          <th className="text-left p-2">Áreas/Procesos</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {clientes.map((cliente, idx) => (
-                          <tr key={idx} className="border-b">
-                            <td className="p-2">{cliente.id}</td>
-                            <td className="p-2">{cliente.nombre}</td>
-                            <td className="p-2">{cliente.elementoPEP}</td>
-                            <td className="p-2">
-                              <div className="flex flex-wrap gap-1">
-                                {cliente.areas.map((area, aIdx) => (
-                                  <span key={aIdx} className="inline-flex items-center px-2 py-1 rounded-md bg-[#303483]/10 text-[#303483] text-sm">
-                                    {area}
-                                  </span>
-                                ))}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+              <CardContent>
+                <ClientesManager onCompanySelect={handleCompanyChange} />
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="distribution">
-            <PayrollDistribution 
-              employees={employees}
-              clientes={clientes}
-              horasTrabajadas={horasTrabajadas}
-            />
+            {loadingClientes ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-[#303483]" />
+                <span className="ml-2">Cargando datos...</span>
+              </div>
+            ) : (
+              <PayrollDistribution
+                employees={employees}
+                clientes={clientes}
+                horasTrabajadas={horasTrabajadas}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="closure">
-            <PayrollClosure 
-              employees={employees}
-              clientes={clientes}
-              horasTrabajadas={horasTrabajadas}
-            />
+            {loadingClientes ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-[#303483]" />
+                <span className="ml-2">Cargando datos...</span>
+              </div>
+            ) : (
+              <PayrollClosure
+                employees={employees}
+                clientes={clientes}
+                horasTrabajadas={horasTrabajadas}
+              />
+            )}
           </TabsContent>
         </Tabs>
       </main>
     </div>
   );
 }
+

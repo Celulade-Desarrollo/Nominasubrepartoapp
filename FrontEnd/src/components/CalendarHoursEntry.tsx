@@ -64,7 +64,7 @@ export function CalendarHoursEntry({ clientes, onSave, existingRecords = [] }: C
     setAreaCliente(newArea);
     // Si hay un cliente seleccionado que no tiene esta área, limpiar la selección del cliente
     if (selectedCliente) {
-      const cliente = clientes.find(c => c.id === selectedCliente);
+      const cliente = clientes.find(c => c.elementoPEP === selectedCliente);
       if (cliente && !cliente.areas.includes(newArea)) {
         setSelectedCliente('');
       }
@@ -74,7 +74,7 @@ export function CalendarHoursEntry({ clientes, onSave, existingRecords = [] }: C
   const handleClienteChange = (newClienteId: string) => {
     setSelectedCliente(newClienteId);
     // Si hay un área seleccionada que no pertenece a este cliente, limpiar la selección del área
-    const cliente = clientes.find(c => c.id === newClienteId);
+    const cliente = clientes.find(c => c.elementoPEP === newClienteId);
     if (cliente && areaCliente && !cliente.areas.includes(areaCliente)) {
       setAreaCliente('');
     }
@@ -87,13 +87,13 @@ export function CalendarHoursEntry({ clientes, onSave, existingRecords = [] }: C
       .reduce((sum, record) => sum + record.horas, 0);
   };
 
-  const selectedClienteData = clientes.find(c => c.id === selectedCliente);
+  const selectedClienteData = clientes.find(c => c.elementoPEP === selectedCliente);
 
   // Obtener todas las áreas únicas de todos los clientes
   const allAreas = Array.from(new Set(clientes.flatMap(c => c.areas))).sort();
 
   // Filtrar clientes basado en el área seleccionada
-  const filteredClientes = areaCliente 
+  const filteredClientes = areaCliente
     ? clientes.filter(c => c.areas.includes(areaCliente))
     : clientes;
 
@@ -159,19 +159,19 @@ export function CalendarHoursEntry({ clientes, onSave, existingRecords = [] }: C
                 {day}
               </div>
             ))}
-            
+
             {/* Días vacíos al inicio */}
             {Array.from({ length: monthStart.getDay() }).map((_, idx) => (
               <div key={`empty-${idx}`} className="p-2" />
             ))}
-            
+
             {/* Días del mes */}
             {daysInMonth.map((day) => {
               const hoursForDay = getHoursForDate(day);
               const isToday = isSameDay(day, new Date());
               const isFuture = day > new Date();
               const hasHours = hoursForDay > 0;
-              
+
               return (
                 <button
                   key={day.toString()}
@@ -216,7 +216,7 @@ export function CalendarHoursEntry({ clientes, onSave, existingRecords = [] }: C
               {selectedDate && format(selectedDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}
             </DialogDescription>
           </DialogHeader>
-          
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="areaCliente">Área del Cliente / Proceso</Label>
@@ -233,7 +233,7 @@ export function CalendarHoursEntry({ clientes, onSave, existingRecords = [] }: C
                 </SelectContent>
               </Select>
               <p className="text-xs text-gray-500">
-                {selectedCliente 
+                {selectedCliente
                   ? 'Áreas disponibles para el cliente seleccionado'
                   : 'Selecciona un área para filtrar los clientes disponibles'
                 }
@@ -248,7 +248,7 @@ export function CalendarHoursEntry({ clientes, onSave, existingRecords = [] }: C
                 </SelectTrigger>
                 <SelectContent>
                   {filteredClientes.map((cliente) => (
-                    <SelectItem key={cliente.id} value={cliente.id}>
+                    <SelectItem key={cliente.id} value={cliente.elementoPEP}>
                       {cliente.nombre}
                     </SelectItem>
                   ))}
@@ -261,7 +261,7 @@ export function CalendarHoursEntry({ clientes, onSave, existingRecords = [] }: C
                 </div>
               )}
               <p className="text-xs text-gray-500">
-                {areaCliente 
+                {areaCliente
                   ? 'Clientes con el área seleccionada'
                   : 'Todos los clientes disponibles'
                 }

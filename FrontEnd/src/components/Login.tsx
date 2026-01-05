@@ -3,19 +3,22 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
-import { LogIn } from 'lucide-react';
+import { LogIn, Loader2 } from 'lucide-react';
 
 interface LoginProps {
-  onLogin: (cedula: string) => void;
+  onLogin: (cedula: string, password: string) => void;
+  isLoading?: boolean;
+  error?: string | null;
 }
 
-export function Login({ onLogin }: LoginProps) {
+export function Login({ onLogin, isLoading = false, error = null }: LoginProps) {
   const [cedula, setCedula] = useState('');
+  const [password, setPassword] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (cedula.trim()) {
-      onLogin(cedula.trim());
+    if (cedula.trim() && password.trim()) {
+      onLogin(cedula.trim(), password.trim());
     }
   };
 
@@ -32,7 +35,7 @@ export function Login({ onLogin }: LoginProps) {
             Sistema de Subreparto de Nómina
           </CardTitle>
           <CardDescription className="text-center">
-            Ingrese su cédula para acceder al sistema
+            Ingrese sus credenciales para acceder al sistema
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -45,22 +48,40 @@ export function Login({ onLogin }: LoginProps) {
                 placeholder="Ingrese su cédula"
                 value={cedula}
                 onChange={(e) => setCedula(e.target.value)}
+                disabled={isLoading}
                 required
               />
             </div>
-            <Button type="submit" className="w-full">
-              Iniciar Sesión
+            <div className="space-y-2">
+              <Label htmlFor="password">Contraseña</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Ingrese su contraseña"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={isLoading}
+                required
+              />
+            </div>
+
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-600">{error}</p>
+              </div>
+            )}
+
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Iniciando sesión...
+                </>
+              ) : (
+                'Iniciar Sesión'
+              )}
             </Button>
           </form>
-
-          <div className="mt-6 p-4 bg-[#bbd531]/10 border border-[#bbd531]/30 rounded-lg">
-            <p className="text-xs text-gray-600 mb-2">Usuarios de prueba:</p>
-            <ul className="text-xs text-gray-500 space-y-1">
-              <li>• 123456 - Administrativo</li>
-              <li>• 234567 - Coordinador</li>
-              <li>• 345678 - Operativo</li>
-            </ul>
-          </div>
         </CardContent>
       </Card>
     </div>
