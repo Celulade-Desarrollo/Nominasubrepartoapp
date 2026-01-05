@@ -14,9 +14,11 @@ app.use(express.json());
 
 
 const AreasRoutes = require("./routes/areas.js");
-
 app.use("/Areas", AreasRoutes);
 
+
+const ClientesRoutes = require("./routes/clientes.js");
+app.use("/Clientes", ClientesRoutes);
 
 app.listen(PORT, () => {
   console.log(`Servidor escuchando en el puerto ${PORT}`);
