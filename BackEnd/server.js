@@ -1,12 +1,23 @@
+const cors = require("cors");
+const express = require("express");
 
-const poolL =require('./config/database.js')
+const dotenv = require("dotenv");
 
-console.log('Starting server...');
+//iniciar imports
+const app = express();
+dotenv.config();
+const PORT = process.env.PORT || 3001;
 
-poolL.query(`SELECT "AreasTrabajos"."NombreArea" FROM "AreasTrabajos"`, (err, res) => {
-  if (err) {
-    console.error("❌ Error al conectar:", err);
-  } else {
-    console.log("✅ Conexión exitosa! Hora del servidor:", res.rows);
-  }
+//iniciar middleware
+app.use(cors());
+app.use(express.json());
+
+
+const AreasRoutes = require("./routes/areas.js");
+
+app.use("/Areas", AreasRoutes);
+
+
+app.listen(PORT, () => {
+  console.log(`Servidor escuchando en el puerto ${PORT}`);
 });

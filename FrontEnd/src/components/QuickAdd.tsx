@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -9,6 +9,8 @@ interface QuickAddProps {
   onAdd: (data: Employee | Cliente) => void;
   type?: 'employee' | 'cliente';
 }
+
+
 
 export function QuickAdd({ onAdd, type = 'employee' }: QuickAddProps) {
   const [formData, setFormData] = useState<{
@@ -25,8 +27,24 @@ export function QuickAdd({ onAdd, type = 'employee' }: QuickAddProps) {
     elementoPEP: '',
   });
 
-  const [areas, setAreas] = useState<string[]>([]);
+
   const [currentArea, setCurrentArea] = useState('');
+
+  //manejo de areas
+  const [areas, setAreas] = useState<string[]>([]);
+  //manejo de carga
+  const [isLoading, setIsLoading]=useState(true);
+
+  useEffect(()=>{
+
+    async function SearchData(){
+      const response=await fetch(import.meta.env.VITE_API_URL);
+      const data = await response.json();
+      setAreas(data.map((item: { NombreArea: string }) => item.NombreArea));
+      setIsLoading(false);
+    }
+    SearchData();
+  },[])
 
   const handleChange = (field: string, value: string) => {
     setFormData({ ...formData, [field]: value });
