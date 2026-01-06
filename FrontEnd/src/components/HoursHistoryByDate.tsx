@@ -1,22 +1,28 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, Edit2, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Button } from './ui/button';
+import { Badge } from './ui/badge';
 
-interface HoursRecord {
+export interface HoursRecord {
+  id?: number;
   clienteId: string;
   clienteNombre: string;
   elementoPEP?: string;
   horas: number;
   fecha: string;
   areaCliente?: string;
+  aprobado?: number; // 0: Pending, 1: Approved, 2: Rejected
+  documentoId?: number;
 }
 
 interface HoursHistoryByDateProps {
   records: HoursRecord[];
+  onEdit?: (record: HoursRecord) => void;
 }
 
-export function HoursHistoryByDate({ records }: HoursHistoryByDateProps) {
+export function HoursHistoryByDate({ records, onEdit }: HoursHistoryByDateProps) {
   // Agrupar registros por fecha
   const groupedByDate = records.reduce((acc, record) => {
     const fecha = record.fecha;
@@ -28,9 +34,38 @@ export function HoursHistoryByDate({ records }: HoursHistoryByDateProps) {
   }, {} as Record<string, HoursRecord[]>);
 
   // Ordenar fechas de más reciente a más antigua
-  const sortedDates = Object.keys(groupedByDate).sort((a, b) => 
+  const sortedDates = Object.keys(groupedByDate).sort((a, b) =>
     new Date(b).getTime() - new Date(a).getTime()
   );
+
+  const getStatusBadge = (aprobado?: number) => {
+    switch (aprobado) {
+      case 1:
+        // Approved
+        return (
+          <Badge className="bg-[#bbd531] text-[#303483] hover:bg-[#bbd531]/90 px-2 py-0.5 text-xs">
+            <CheckCircle className="w-3 h-3 mr-1" />
+            Aprobado
+          </Badge>
+        );
+      case 2:
+        // Rejected
+        return (
+          <Badge variant="destructive" className="px-2 py-0.5 text-xs">
+            <XCircle className="w-3 h-3 mr-1" />
+            Rechazado
+          </Badge>
+        );
+      default:
+        // Pending (0 or undefined)
+        return (
+          <Badge variant="secondary" className="px-2 py-0.5 text-xs bg-gray-200 text-gray-700 hover:bg-gray-300">
+            <Clock className="w-3 h-3 mr-1" />
+            Pendiente
+          </Badge>
+        );
+    }
+  };
 
   if (records.length === 0) {
     return (
@@ -72,25 +107,46 @@ export function HoursHistoryByDate({ records }: HoursHistoryByDateProps) {
 
                 <div className="space-y-2">
                   {dayRecords.map((record, idx) => (
-                    <div 
-                      key={idx} 
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg group hover:bg-gray-100 transition-colors"
                     >
                       <div className="flex-1">
-                        <p className="text-gray-900">{record.clienteNombre}</p>
-                        <div className="flex flex-wrap gap-2 mt-1">
-                          {record.elementoPEP && (
-                            <span className="text-sm text-gray-500">{record.elementoPEP}</span>
-                          )}
-                          {record.areaCliente && (
-                            <span className="text-sm text-[#303483] bg-[#303483]/10 px-2 py-0.5 rounded">
-                              {record.areaCliente}
-                            </span>
-                          )}
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="text-gray-900 font-medium">{record.clienteNombre}</p>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {record.elementoPEP && (
+                                <span className="text-sm text-gray-500">{record.elementoPEP}</span>
+                              )}
+                              {record.areaCliente && (
+                                <span className="text-sm text-[#303483] bg-[#303483]/10 px-2 py-0.5 rounded">
+                                  {record.areaCliente}
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-gray-900">{record.horas}h</p>
+
+                      <div className="flex flex-col items-end gap-2 ml-4">
+                        <div className="flex items-center gap-3">
+                          <span className="text-gray-900 font-bold">{record.horas}h</span>
+                          {getStatusBadge(record.aprobado)}
+                        </div>
+
+                        {/* Show edit button ONLY if rejected (status 2) and onEdit is provided */}
+                        {record.aprobado === 2 && onEdit && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-gray-500 hover:text-[#303483]"
+                            onClick={() => onEdit(record)}
+                          >
+                            <Edit2 className="w-3 h-3 mr-1" />
+                            Editar
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}

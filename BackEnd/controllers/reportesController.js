@@ -11,6 +11,7 @@ function GetReportes(req, resp) {
       r."cliente",
       r."documento_id",
       r."area_trabajo",
+      r."aprobado",
       c."nombre_company",
       a."nombre_area"
     FROM "Reportes" r
@@ -39,6 +40,7 @@ function GetReporteById(req, resp) {
       r."cliente",
       r."documento_id",
       r."area_trabajo",
+      r."aprobado",
       c."nombre_company",
       a."nombre_area"
     FROM "Reportes" r
@@ -74,6 +76,7 @@ function GetReportesByDocumento(req, resp) {
       r."cliente",
       r."documento_id",
       r."area_trabajo",
+      r."aprobado",
       c."nombre_company",
       a."nombre_area"
     FROM "Reportes" r
@@ -104,6 +107,7 @@ function GetReportesByCliente(req, resp) {
       r."cliente",
       r."documento_id",
       r."area_trabajo",
+      r."aprobado",
       c."nombre_company",
       a."nombre_area"
     FROM "Reportes" r
@@ -125,11 +129,19 @@ function GetReportesByCliente(req, resp) {
 
 // POST create new reporte
 function PostReporte(req, resp) {
-    const { horas, fecha_trabajada, cliente, documento_id, area_trabajo } = req.body;
+    const { horas, fecha_trabajada, cliente, documento_id, area_trabajo, aprobado } = req.body;
+
+    // Si 'aprobado' no se envía, por defecto es null/0 (según la DB), pero aquí permitimos enviarlo.
+    // Usamos $6 si existe, o DEFAULT si no.
+    // Para simplificar, haremos una query condicional o pasaremos el valor (si es undefined, node-postgres lo maneja si la query lo espera? No, hay que construirlo o pasar null).
+    // Mejor estrategia: Definir columnas dinámicas o simplemente asumir que 'aprobado' es opcional y si viene lo insertamos.
+
+    // Simplificando: Si viene 'aprobado', lo insertamos. Si no, usamos null (o 0).
+    const valAprobado = aprobado !== undefined ? aprobado : 0;
 
     poolL.query(
-        `INSERT INTO "Reportes"("horas", "fecha_trabajada", "cliente", "documento_id", "area_trabajo") VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-        [horas, fecha_trabajada, cliente, documento_id, area_trabajo],
+        `INSERT INTO "Reportes"("horas", "fecha_trabajada", "cliente", "documento_id", "area_trabajo", "aprobado") VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        [horas, fecha_trabajada, cliente, documento_id, area_trabajo, valAprobado],
         (err, res) => {
             if (err) {
                 resp.status(err.status || 500).json({ error: err.message });
@@ -176,6 +188,11 @@ function PutReporteById(req, resp) {
         valores.push(area_trabajo);
         contador++;
     }
+    if (req.body.aprobado !== undefined) {
+        campos.push(`"aprobado"=$${contador}`);
+        valores.push(req.body.aprobado);
+        contador++;
+    }
 
     if (campos.length === 0) {
         resp.status(400).json({ error: "No se proporcionaron campos para actualizar" });
@@ -215,11 +232,52 @@ function DeleteReporteById(req, resp) {
     );
 }
 
+// GET reportes by coordinador_id (linked via IntermedioCoordinadores)
+function GetReportesByCoordinador(req, resp) {
+    const coordinadorId = req.params.coordinadorId;
+
+    if (!coordinadorId) {
+        return resp.status(400).json({ error: "Se requiere el ID del coordinador" });
+    }
+
+    poolL.query(
+        `SELECT 
+      r."id",
+      r."created_at",
+      r."horas",
+      r."fecha_trabajada",
+      r."cliente",
+      r."documento_id",
+      r."area_trabajo",
+      r."aprobado",
+      c."nombre_company",
+      a."nombre_area",
+      u."nombre_usuario" as "nombre_empleado"
+    FROM "Reportes" r
+    JOIN "IntermedioCoordinadores" ic ON r."cliente" = ic."cliente"
+    LEFT JOIN "Companies" c ON r."cliente" = c."elemento_pep"
+    LEFT JOIN "AreasTrabajos" a ON r."area_trabajo" = a."id"::text
+    LEFT JOIN "Usuarios" u ON r."documento_id" = u."documento_id"
+    WHERE ic."coordinador" = $1
+    ORDER BY r."created_at" DESC`,
+        [coordinadorId],
+        (err, res) => {
+            if (err) {
+                resp.status(err.status || 500).json({ error: err.message });
+                console.error("❌ Error al obtener reportes por coordinador:", err);
+            } else {
+                resp.json(res.rows);
+            }
+        }
+    );
+}
+
 module.exports = {
     GetReportes,
     GetReporteById,
     GetReportesByDocumento,
     GetReportesByCliente,
+    GetReportesByCoordinador,
     PostReporte,
     PutReporteById,
     DeleteReporteById

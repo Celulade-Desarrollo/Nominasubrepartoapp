@@ -54,8 +54,10 @@ export interface Reporte {
     cliente: string;
     documento_id: number;
     area_trabajo: number;
+    aprobado?: number; // 0: pendiente, 1: aprobado, 2: rechazado
     nombre_company?: string;
     nombre_area?: string;
+    nombre_empleado?: string;
 }
 
 export interface Rol {
@@ -128,9 +130,10 @@ export const reportesAPI = {
     getById: (id: number) => fetchAPI<Reporte>(`/Reportes/${id}`),
     getByDocumento: (documentoId: number) => fetchAPI<Reporte[]>(`/Reportes/documento/${documentoId}`),
     getByCliente: (clienteId: string) => fetchAPI<Reporte[]>(`/Reportes/cliente/${clienteId}`),
-    create: (data: { horas: number; fecha_trabajada: string; cliente: string; documento_id: number; area_trabajo: number }) =>
+    getByCoordinador: (coordinadorId: string) => fetchAPI<Reporte[]>(`/Reportes/coordinador/${coordinadorId}`),
+    create: (data: { horas: number; fecha_trabajada: string; cliente: string; documento_id: number; area_trabajo: number; aprobado?: number }) =>
         fetchAPI<Reporte>('/Reportes', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: number, data: { horas?: number; cliente?: string; documento_id?: number; area_trabajo?: number }) =>
+    update: (id: number, data: { horas?: number; cliente?: string; documento_id?: number; area_trabajo?: number; aprobado?: number }) =>
         fetchAPI<Reporte>(`/Reportes/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: number) =>
         fetchAPI<{ message: string; deleted: Reporte }>(`/Reportes/${id}`, { method: 'DELETE' }),

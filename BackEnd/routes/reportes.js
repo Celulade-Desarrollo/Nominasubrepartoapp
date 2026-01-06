@@ -8,6 +8,11 @@ router.get("/", (req, resp) => {
     reportesController.GetReportes(req, resp);
 });
 
+// GET reportes by coordinador (MUST BE BEFORE /:id)
+router.get("/coordinador/:coordinadorId", (req, resp) => {
+    reportesController.GetReportesByCoordinador(req, resp);
+});
+
 // GET reporte by ID
 router.get("/:id", (req, resp) => {
     reportesController.GetReporteById(req, resp);

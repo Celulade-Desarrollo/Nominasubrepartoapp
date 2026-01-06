@@ -7,7 +7,7 @@ import { CalendarInstructions } from './CalendarInstructions';
 import { HoursHistoryByDate } from './HoursHistoryByDate';
 import { PayrollReview } from './PayrollReview';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { companiesAPI, areasEnCompanyAPI } from '../services/api';
+import { companiesAPI, areasEnCompanyAPI, reportesAPI } from '../services/api';
 import type { User } from '../App';
 
 interface CoordinatorDashboardProps {
@@ -21,6 +21,7 @@ export interface HoursRecord {
   horas: number;
   fecha: string;
   areaCliente?: string;
+  aprobado?: number;
 }
 
 interface Cliente {
@@ -57,7 +58,18 @@ export function CoordinatorDashboard({ user, onLogout }: CoordinatorDashboardPro
       );
 
       setClientes(clientesWithAreas);
-      // TODO: Load coordinator specific records if needed
+
+      // Load coordinator specific records
+      const coordinatorReports = await reportesAPI.getByDocumento(parseInt(user.cedula));
+      const mappedRecords: HoursRecord[] = coordinatorReports.map(report => ({
+        clienteId: report.cliente,
+        clienteNombre: report.nombre_company || report.cliente,
+        horas: report.horas,
+        fecha: report.fecha_trabajada ? report.fecha_trabajada.split('T')[0] : new Date().toISOString().split('T')[0],
+        areaCliente: report.nombre_area,
+        aprobado: report.aprobado
+      }));
+      setHoursRecords(mappedRecords);
     } catch (err) {
       console.error('Error loading data:', err);
     } finally {
@@ -65,17 +77,40 @@ export function CoordinatorDashboard({ user, onLogout }: CoordinatorDashboardPro
     }
   };
 
-  const handleSaveHours = (clienteId: string, horas: number, fecha: Date, areaCliente?: string) => {
-    const cliente = clientes.find(c => c.elementoPEP === clienteId);
-    if (cliente) {
+  const handleSaveHours = async (clienteId: string, horas: number, fecha: Date, areaCliente?: string) => {
+    try {
+      const cliente = clientes.find(c => c.elementoPEP === clienteId);
+      if (!cliente) return;
+
+      let areaTrabajoId = 0;
+      if (areaCliente) {
+        const areas = await areasEnCompanyAPI.getByCompany(cliente.id);
+        const foundArea = areas.find(a => a.nombre_area === areaCliente);
+        if (foundArea) {
+          areaTrabajoId = foundArea.area_cliente;
+        }
+      }
+
+      await reportesAPI.create({
+        horas,
+        fecha_trabajada: fecha.toISOString().split('T')[0],
+        cliente: clienteId,
+        documento_id: parseInt(user.cedula),
+        area_trabajo: areaTrabajoId,
+        aprobado: 1 // Auto-approve for coordinators
+      });
+
       const newRecord: HoursRecord = {
         clienteId,
         clienteNombre: cliente.nombre,
         horas,
         fecha: fecha.toISOString().split('T')[0],
         areaCliente,
+        aprobado: 1,
       };
       setHoursRecords([...hoursRecords, newRecord]);
+    } catch (error) {
+      console.error('Error saving hours:', error);
     }
   };
 
@@ -153,7 +188,7 @@ export function CoordinatorDashboard({ user, onLogout }: CoordinatorDashboardPro
           </TabsContent>
 
           <TabsContent value="review">
-            <PayrollReview />
+            <PayrollReview coordinatorId={user.cedula} />
           </TabsContent>
         </Tabs>
       </main>

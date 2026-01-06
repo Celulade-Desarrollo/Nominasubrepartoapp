@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Save, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { HoursRecord } from './HoursHistoryByDate';
 
 interface Cliente {
   id: string;
@@ -16,28 +17,54 @@ interface Cliente {
   areas: string[];
 }
 
-interface HoursRecord {
-  clienteId: string;
-  clienteNombre: string;
-  elementoPEP?: string;
-  horas: number;
-  fecha: string;
-  areaCliente?: string;
-}
+
 
 interface CalendarHoursEntryProps {
   clientes: Cliente[];
   onSave: (clienteId: string, horas: number, fecha: Date, areaCliente?: string) => void;
   existingRecords?: HoursRecord[];
+  recordToEdit?: HoursRecord | null;
+  onCancelEdit?: () => void;
 }
 
-export function CalendarHoursEntry({ clientes, onSave, existingRecords = [] }: CalendarHoursEntryProps) {
+export function CalendarHoursEntry({
+  clientes,
+  onSave,
+  existingRecords = [],
+  recordToEdit,
+  onCancelEdit
+}: CalendarHoursEntryProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedCliente, setSelectedCliente] = useState<string>('');
   const [horas, setHoras] = useState<string>('');
   const [areaCliente, setAreaCliente] = useState<string>('');
+
+  // Effect to handle edit mode
+  useEffect(() => {
+    if (recordToEdit) {
+      setSelectedDate(new Date(recordToEdit.fecha + 'T12:00:00')); // Use noon to avoid timezone overlaps
+      setSelectedCliente(recordToEdit.clienteId);
+      setHoras(recordToEdit.horas.toString());
+      setAreaCliente(recordToEdit.areaCliente || '');
+      setDialogOpen(true);
+    }
+  }, [recordToEdit]);
+
+  // Handle dialog close (reset edit state)
+  const handleOpenChange = (open: boolean) => {
+    setDialogOpen(open);
+    if (!open && onCancelEdit) {
+      onCancelEdit();
+    }
+    if (!open) {
+      // Reset form if closing
+      setSelectedCliente('');
+      setHoras('');
+      setAreaCliente('');
+    }
+  };
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -54,9 +81,13 @@ export function CalendarHoursEntry({ clientes, onSave, existingRecords = [] }: C
     if (selectedCliente && horas && selectedDate && areaCliente) {
       onSave(selectedCliente, parseFloat(horas), selectedDate, areaCliente);
       setDialogOpen(false);
-      setSelectedCliente('');
-      setHoras('');
-      setAreaCliente('');
+      // Reset is handled by useEffect or handleOpenChange if strictly needed, 
+      // but usually good to reset here too for creating new entries
+      if (!recordToEdit) {
+        setSelectedCliente('');
+        setHoras('');
+        setAreaCliente('');
+      }
     }
   };
 
@@ -208,10 +239,10 @@ export function CalendarHoursEntry({ clientes, onSave, existingRecords = [] }: C
         </CardContent>
       </Card>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={handleOpenChange}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Registrar Horas</DialogTitle>
+            <DialogTitle>{recordToEdit ? 'Editar Reporte' : 'Registrar Horas'}</DialogTitle>
             <DialogDescription>
               {selectedDate && format(selectedDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}
             </DialogDescription>
