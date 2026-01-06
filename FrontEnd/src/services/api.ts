@@ -84,9 +84,9 @@ export interface Usuario {
 export const areasAPI = {
     getAll: () => fetchAPI<Area[]>('/Areas'),
     getById: (id: number) => fetchAPI<Area>(`/Areas/${id}`),
-    create: (data: { NombreArea: string }) =>
+    create: (data: { nombre_area: string }) =>
         fetchAPI<Area>('/Areas', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: number, data: { NombreArea?: string; Activo?: boolean }) =>
+    update: (id: number, data: { nombre_area?: string; activo?: boolean }) =>
         fetchAPI<Area>(`/Areas/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 };
 

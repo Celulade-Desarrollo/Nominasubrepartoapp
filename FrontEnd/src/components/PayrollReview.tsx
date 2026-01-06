@@ -79,11 +79,12 @@ export function PayrollReview({ coordinatorId }: PayrollReviewProps) {
     if (dayReports.length === 0) return null;
 
     const hasPending = dayReports.some(r => r.aprobado !== 1 && r.aprobado !== 2);
-    const hasRejected = dayReports.some(r => r.aprobado === 2);
+    const hasRejected = dayReports.every(r => r.aprobado === 2);
     const allApproved = dayReports.every(r => r.aprobado === 1);
-    const allMixed = dayReports.some(r => r.aprobado === 1 && r.aprobado === 2);
+    const allMixed = dayReports.some(r => r.aprobado === 2) && dayReports.some(r => r.aprobado === 1) && dayReports.length > 1;
 
     if (allMixed) return 'mixed';
+
     if (hasPending) return 'pending';
     if (hasRejected) return 'rejected';
     if (allApproved) return 'approved';
@@ -301,7 +302,7 @@ export function PayrollReview({ coordinatorId }: PayrollReviewProps) {
         <div className="flex flex-wrap gap-4 mb-6 text-sm">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full " style={{ backgroundColor: 'orange' }}></div>
-            <span className="text-gray-600">Sin reportes</span>
+            <span className="text-gray-600">Combinados</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full " style={{ backgroundColor: 'blue' }}></div>
@@ -310,6 +311,10 @@ export function PayrollReview({ coordinatorId }: PayrollReviewProps) {
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-[#bbd531]"></div>
             <span className="text-gray-600">Aprobados</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full " style={{ backgroundColor: 'red' }}></div>
+            <span className="text-gray-600">Rechazados</span>
           </div>
         </div>
 
@@ -350,9 +355,7 @@ export function PayrollReview({ coordinatorId }: PayrollReviewProps) {
                 <span className={`text-sm font-medium ${isToday ? 'text-[#303483]' : ''}`}>
                   {format(day, 'd')}
                 </span>
-                <span className={`text-sm font-medium ${isToday ? 'text-[#303483]' : ''}`}>
-                  {status}
-                </span>
+
 
                 {hasContent && (
                   <div className="flex justify-end mt-2">

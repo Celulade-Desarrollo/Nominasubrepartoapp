@@ -214,9 +214,12 @@ export function CalendarHoursEntry({
                     ${isToday ? 'border-[#bbd531] bg-[#bbd531]/10 shadow-sm' : ''}
                     ${hasHours && !isToday ? 'bg-[#303483]/5 border-[#303483]/20' : ''}
                   `}
+                  style={{
+                    backgroundColor: isToday ? '#bad53194' : isFuture ? '#f0f0f0' : 'transparent',
+                  }}
                 >
                   <div className="flex flex-col h-full">
-                    <span className={`text-sm ${isToday ? 'text-[#303483]' : isFuture ? 'text-gray-400' : 'text-gray-700'}`}>
+                    <span className={`text-sm ${isToday ? 'text-[#303483] ' : isFuture ? 'text-gray-400' : 'text-gray-700'}`}>
                       {format(day, 'd')}
                     </span>
                     {hasHours && (

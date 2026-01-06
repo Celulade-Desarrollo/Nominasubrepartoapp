@@ -134,7 +134,7 @@ export function ClientesManager({ onCompanySelect }: ClientesManagerProps) {
 
         try {
             setIsSubmitting(true);
-            await areasAPI.create({ NombreArea: newAreaName.trim() });
+            await areasAPI.create({ nombre_area: newAreaName.trim() });
             setNewAreaName('');
             await loadAreas();
         } catch (err) {
@@ -250,8 +250,8 @@ export function ClientesManager({ onCompanySelect }: ClientesManagerProps) {
                                     <span
                                         key={area.id}
                                         className={`px-3 py-1 rounded-full text-sm ${area.activo
-                                                ? 'bg-[#303483]/10 text-[#303483]'
-                                                : 'bg-gray-100 text-gray-400'
+                                            ? 'bg-[#303483]/10 text-[#303483]'
+                                            : 'bg-gray-100 text-gray-400'
                                             }`}
                                     >
                                         {area.nombre_area}
@@ -286,8 +286,8 @@ export function ClientesManager({ onCompanySelect }: ClientesManagerProps) {
                                 <div
                                     key={company.id}
                                     className={`flex items-center justify-between p-4 rounded-lg border cursor-pointer transition-colors ${selectedCompany?.id === company.id
-                                            ? 'bg-[#303483]/10 border-[#303483]'
-                                            : 'bg-white hover:bg-gray-50'
+                                        ? 'bg-[#303483]/10 border-[#303483]'
+                                        : 'bg-white hover:bg-gray-50'
                                         }`}
                                     onClick={() => setSelectedCompany(
                                         selectedCompany?.id === company.id ? null : company
