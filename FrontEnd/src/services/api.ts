@@ -159,25 +159,50 @@ export const rolesAPI = {
 // =====================
 
 export const usuariosAPI = {
-    getAll: () => fetchAPI<Usuario[]>('/Usuarios'),
-    getById: (id: string) => fetchAPI<Usuario>(`/Usuarios/${id}`),
-    getByDocumento: (documentoId: number) => fetchAPI<Usuario>(`/Usuarios/documento/${documentoId}`),
-    getByRol: (rolId: number) => fetchAPI<Usuario[]>(`/Usuarios/rol/${rolId}`),
-    create: (data: { documento_id: number; nombre_usuario: string; password: string; rol: number; email?: string }) =>
-        fetchAPI<Usuario>('/Usuarios', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: { documento_id?: number; nombre_usuario?: string; password?: string; rol?: number; email?: string }) =>
-        fetchAPI<Usuario>(`/Usuarios/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    delete: (id: string) =>
-        fetchAPI<{ message: string; deleted: Usuario }>(`/Usuarios/${id}`, { method: 'DELETE' }),
+  getAll: () => fetchAPI<Usuario[]>("/Usuarios"),
+  getById: (id: string) => fetchAPI<Usuario>(`/Usuarios/${id}`),
+  getByDocumento: (documentoId: number) =>
+  fetchAPI<Usuario>(`/Usuarios/documento/${documentoId}`),
+  getByEmail: (email: string) => fetchAPI<Usuario>(`/Usuarios/email/${email}`),
+  getByRol: (rolId: number) => fetchAPI<Usuario[]>(`/Usuarios/rol/${rolId}`),
+  create: (data: {
+    documento_id: number;
+    nombre_usuario: string;
+    password: string;
+    rol: number;
+    email?: string;
+  }) =>
+    fetchAPI<Usuario>("/Usuarios", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  update: (
+    id: string,
+    data: {
+      documento_id?: number;
+      nombre_usuario?: string;
+      password?: string;
+      rol?: number;
+      email?: string;
+    }
+  ) =>
+    fetchAPI<Usuario>(`/Usuarios/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  delete: (id: string) =>
+    fetchAPI<{ message: string; deleted: Usuario }>(`/Usuarios/${id}`, {
+      method: "DELETE",
+    }),
 };
 
 // =====================
 // AUTH HELPER
 // =====================
 
-export async function loginUser(documentoId: number, password: string): Promise<Usuario | null> {
+export async function loginUser(email: string, password: string): Promise<Usuario | null> {
     try {
-        const user = await usuariosAPI.getByDocumento(documentoId);
+        const user = await usuariosAPI.getByEmail(email);
         if (user && user.password === password) {
             // Don't return password to the app
             const { password: _, ...userWithoutPassword } = user;

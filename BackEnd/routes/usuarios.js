@@ -9,8 +9,13 @@ router.get("/", (req, resp) => {
 });
 
 // GET usuario by ID
-router.get("/:id", (req, resp) => {
+router.get("/id/:id", (req, resp) => {
     usuariosController.GetUsuarioById(req, resp);
+});
+
+// GET usuario by Email
+router.get("/email/:email", (req, resp) => {
+    usuariosController.GetUsuarioByEmail(req, resp);
 });
 
 // GET usuario by documento_id (para login)

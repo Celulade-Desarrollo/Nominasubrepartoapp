@@ -51,6 +51,32 @@ function GetUsuarioById(req, resp) {
     );
 }
 
+// GET usuario by Email
+function GetUsuarioByEmail(req, resp) {
+    poolL.query(
+        `SELECT 
+      u."id",
+      u."created_at",
+      u."documento_id",
+      u."nombre_usuario",
+      u."rol",
+      u."email",
+      r."nombre_rol"
+    FROM "Usuarios" u
+    LEFT JOIN "roles" r ON u."rol" = r."id"
+    WHERE u."email" = $1`,
+        [req.params.email],
+        (err, res) => {
+            if (err) {
+                resp.status(err.status || 500).json({ error: err.message });
+                console.error("❌ Error al obtener usuario por email:", err);
+            } else {
+                resp.json(res.rows[0]);
+            }
+        }
+    );
+}
+
 // GET usuario by documento_id (para login)
 function GetUsuarioByDocumento(req, resp) {
     const documentoId = parseInt(req.params.documentoId);
