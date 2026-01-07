@@ -25,10 +25,10 @@ const msalConfig = {
     // La URL a donde Microsoft redirige después del login
     // Debe coincidir EXACTAMENTE con la que registraste en Azure Portal
     // En desarrollo usamos localhost, en producción será tu dominio real
-    redirectUri: "https://nominasubrepartoapp-ge25.vercel.app/",
+    redirectUri: import.meta.env.VITE_AZURE_REDIRECT_URI,
 
     // URL a donde redirigir después de cerrar sesión (opcional)
-    postLogoutRedirectUri: "https://nominasubrepartoapp-ge25.vercel.app/",
+    postLogoutRedirectUri: import.meta.env.VITE_AZURE_REDIRECT_URI,
   },
 
   cache: {

@@ -51,10 +51,11 @@ function GetUsuarioById(req, resp) {
     );
 }
 
+
 // GET usuario by Email
 function GetUsuarioByEmail(req, resp) {
-    poolL.query(
-        `SELECT 
+  poolL.query(
+    `SELECT 
       u."id",
       u."created_at",
       u."documento_id",
@@ -65,16 +66,19 @@ function GetUsuarioByEmail(req, resp) {
     FROM "Usuarios" u
     LEFT JOIN "roles" r ON u."rol" = r."id"
     WHERE u."email" = $1`,
-        [req.params.email],
-        (err, res) => {
-            if (err) {
-                resp.status(err.status || 500).json({ error: err.message });
-                console.error("❌ Error al obtener usuario por email:", err);
-            } else {
-                resp.json(res.rows[0]);
-            }
-        }
-    );
+    [req.params.email],
+    (err, res) => {
+      if (err) {
+        resp.status(500).json({ error: err.message });
+        console.error("❌ Error al obtener usuario por email:", err);
+      } else if (!res.rows[0]) {
+        // Usuario no encontrado - devolver 404
+        resp.status(404).json({ error: "Usuario no encontrado" });
+      } else {
+        resp.json(res.rows[0]);
+      }
+    }
+  );
 }
 
 // GET usuario by documento_id (para login)
@@ -239,11 +243,12 @@ function DeleteUsuarioById(req, resp) {
 }
 
 module.exports = {
-    GetUsuarios,
-    GetUsuarioById,
-    GetUsuarioByDocumento,
-    GetUsuariosByRol,
-    PostUsuario,
-    PutUsuarioById,
-    DeleteUsuarioById
+  GetUsuarios,
+  GetUsuarioById,
+  GetUsuarioByDocumento,
+  GetUsuariosByRol,
+  PostUsuario,
+  PutUsuarioById,
+  DeleteUsuarioById,
+  GetUsuarioByEmail
 };
