@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Download, Loader2, Calendar, FileSpreadsheet, AlertCircle } from 'lucide-react';
-import { reportesAPI, companiesAPI, usuariosAPI, type Reporte, type Company, type Usuario } from '../services/api';
+import { reportesAPI, companiesAPI, type Reporte, type Company } from '../services/api';
 
 interface ReportSummary {
     cliente: string;
@@ -23,6 +23,7 @@ export function ReportDownload() {
     const [dateTo, setDateTo] = useState('');
     const [preview, setPreview] = useState<ReportSummary[]>([]);
     const [showPreview, setShowPreview] = useState(false);
+    const [grandTotalHours, setGrandTotalHours] = useState(0);
 
     // Set default dates (current month)
     useEffect(() => {
@@ -40,10 +41,9 @@ export function ReportDownload() {
             setError(null);
 
             // Fetch all required data
-            const [reportes, companies, usuarios] = await Promise.all([
+            const [reportes, companies] = await Promise.all([
                 reportesAPI.getAll(),
-                companiesAPI.getAll(),
-                usuariosAPI.getAll()
+                companiesAPI.getAll()
             ]);
 
             // Filter reports by date range and only approved ones (aprobado === 1)
@@ -64,52 +64,30 @@ export function ReportDownload() {
             }
 
             // Group by company
-            const reportsByCompany = new Map<string, Reporte[]>();
+            const reportsByCompany = new Map<string, number>();
 
             filteredReportes.forEach((reporte: Reporte) => {
                 const key = reporte.cliente;
-                if (!reportsByCompany.has(key)) {
-                    reportsByCompany.set(key, []);
-                }
-                reportsByCompany.get(key)!.push(reporte);
+                const currentTotal = reportsByCompany.get(key) || 0;
+                reportsByCompany.set(key, currentTotal + reporte.horas);
             });
+
+            // Calculate Grand Total for all filtered reports
+            const totalAllCompanies = Array.from(reportsByCompany.values()).reduce((sum, h) => sum + h, 0);
+            setGrandTotalHours(totalAllCompanies);
 
             // Build summary
             const summary: ReportSummary[] = [];
 
-            reportsByCompany.forEach((reportes, clienteId) => {
+            reportsByCompany.forEach((totalHoras, clienteId) => {
                 const company = companies.find((c: Company) => c.elemento_pep === clienteId);
-
-                // Group by employee
-                const employeeHours = new Map<number, { nombre: string; horas: number }>();
-
-                reportes.forEach((r: Reporte) => {
-                    const docId = r.documento_id;
-                    const usuario = usuarios.find((u: Usuario) => u.documento_id === docId);
-
-                    if (!employeeHours.has(docId)) {
-                        employeeHours.set(docId, {
-                            nombre: usuario?.nombre_usuario || `Empleado ${docId}`,
-                            horas: 0
-                        });
-                    }
-                    employeeHours.get(docId)!.horas += r.horas;
-                });
-
-                const empleados = Array.from(employeeHours.entries()).map(([docId, data]) => ({
-                    documento_id: docId,
-                    nombre: data.nombre,
-                    horas: data.horas
-                }));
-
-                const totalHoras = empleados.reduce((sum, e) => sum + e.horas, 0);
 
                 summary.push({
                     cliente: clienteId,
                     nombre_company: company?.nombre_company || clienteId,
                     elemento_pep: company?.elemento_pep || clienteId,
                     total_horas: totalHoras,
-                    empleados
+                    empleados: [] // No longer needed but kept for type compatibility if needed, or we can just ignore it
                 });
             });
 
@@ -127,39 +105,37 @@ export function ReportDownload() {
     const downloadCSV = () => {
         if (preview.length === 0) return;
 
-        // Build CSV content
+        // Build CSV content with semicolon delimiter
         const lines: string[] = [];
 
         // Header
-        lines.push('Empresa,Elemento PEP,Total Horas,Documento Empleado,Nombre Empleado,Horas Empleado');
+        lines.push('Empresa;Elemento PEP;Total Horas;Porcentaje Participación');
 
         // Data rows
         preview.forEach(company => {
-            company.empleados.forEach((emp, idx) => {
-                lines.push([
-                    idx === 0 ? `"${company.nombre_company}"` : '',
-                    idx === 0 ? `"${company.elemento_pep}"` : '',
-                    idx === 0 ? company.total_horas.toString() : '',
-                    emp.documento_id.toString(),
-                    `"${emp.nombre}"`,
-                    emp.horas.toString()
-                ].join(','));
-            });
-            // Add empty row between companies
-            lines.push('');
+            const percentage = grandTotalHours > 0
+                ? ((company.total_horas / grandTotalHours) * 100).toFixed(2)
+                : '0.00';
+
+            lines.push([
+                `"${company.nombre_company}"`,
+                `"${company.elemento_pep}"`,
+                company.total_horas.toString(),
+                `${percentage}%`
+            ].join(';'));
         });
 
         // Add totals
-        const grandTotal = preview.reduce((sum, c) => sum + c.total_horas, 0);
-        lines.push(`TOTAL GENERAL,,,,,${grandTotal}`);
+        lines.push(`TOTAL GENERAL;;${grandTotalHours};100.00%`);
 
         const csvContent = lines.join('\n');
+        // Add BOM for Excel to recognize UTF-8
         const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = `reporte_horas_${dateFrom}_a_${dateTo}.csv`;
+        link.download = `reporte_horas_empresas_${dateFrom}_a_${dateTo}.csv`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -222,7 +198,7 @@ export function ReportDownload() {
             {showPreview && preview.length > 0 && (
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle className="text-lg">Vista Previa del Reporte</CardTitle>
+                        <CardTitle className="text-lg">Vista Previa (Resumen por Empresa)</CardTitle>
                         <Button onClick={downloadCSV} className="bg-[#303483] hover:bg-[#252a6b]">
                             <Download className="w-4 h-4 mr-2" />
                             Descargar CSV
@@ -236,49 +212,34 @@ export function ReportDownload() {
                                         <th className="text-left p-3 font-semibold">Empresa</th>
                                         <th className="text-left p-3 font-semibold">Elemento PEP</th>
                                         <th className="text-right p-3 font-semibold">Total Horas</th>
-                                        <th className="text-left p-3 font-semibold">Documento</th>
-                                        <th className="text-left p-3 font-semibold">Empleado</th>
-                                        <th className="text-right p-3 font-semibold">Horas</th>
+                                        <th className="text-right p-3 font-semibold">Participación</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {preview.map((company, companyIdx) => (
-                                        company.empleados.map((emp, empIdx) => (
-                                            <tr
-                                                key={`${companyIdx}-${empIdx}`}
-                                                className={`border-b ${empIdx === 0 ? 'bg-[#bbd531]/10' : ''}`}
-                                            >
-                                                <td className="p-3 font-medium">
-                                                    {empIdx === 0 ? company.nombre_company : ''}
-                                                </td>
-                                                <td className="p-3 text-gray-600">
-                                                    {empIdx === 0 ? company.elemento_pep : ''}
-                                                </td>
-                                                <td className="p-3 text-right font-semibold text-[#303483]">
-                                                    {empIdx === 0 ? company.total_horas : ''}
-                                                </td>
-                                                <td className="p-3">{emp.documento_id}</td>
-                                                <td className="p-3">{emp.nombre}</td>
-                                                <td className="p-3 text-right">{emp.horas}</td>
+                                    {preview.map((company, idx) => {
+                                        const percentage = grandTotalHours > 0
+                                            ? ((company.total_horas / grandTotalHours) * 100).toFixed(2)
+                                            : '0.00';
+
+                                        return (
+                                            <tr key={idx} className="border-b">
+                                                <td className="p-3 font-medium">{company.nombre_company}</td>
+                                                <td className="p-3 text-gray-600">{company.elemento_pep}</td>
+                                                <td className="p-3 text-right font-semibold text-[#303483]">{company.total_horas}</td>
+                                                <td className="p-3 text-right">{percentage}%</td>
                                             </tr>
-                                        ))
-                                    ))}
+                                        );
+                                    })}
                                 </tbody>
                                 <tfoot>
                                     <tr className="bg-[#303483] text-white">
                                         <td colSpan={2} className="p-3 font-bold">TOTAL GENERAL</td>
-                                        <td className="p-3 text-right font-bold">
-                                            {preview.reduce((sum, c) => sum + c.total_horas, 0)}
-                                        </td>
-                                        <td colSpan={3}></td>
+                                        <td className="p-3 text-right font-bold">{grandTotalHours}</td>
+                                        <td className="p-3 text-right font-bold">100.00%</td>
                                     </tr>
                                 </tfoot>
                             </table>
                         </div>
-
-                        <p className="mt-4 text-sm text-gray-500">
-                            * Solo se incluyen reportes aprobados en el período seleccionado
-                        </p>
                     </CardContent>
                 </Card>
             )}

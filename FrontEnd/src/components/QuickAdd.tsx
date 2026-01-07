@@ -3,7 +3,21 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Plus, X } from 'lucide-react';
-import type { Employee, Cliente } from './AdminDashboard';
+
+// Types defined locally since they're not exported from AdminDashboard
+export interface Employee {
+  cedula: string;
+  nombre: string;
+  unidadNegocio: string;
+  salarioBruto: number;
+}
+
+export interface Cliente {
+  id: string;
+  nombre: string;
+  elementoPEP: string;
+  areas: string[];
+}
 
 interface QuickAddProps {
   onAdd: (data: Employee | Cliente) => void;
@@ -33,18 +47,18 @@ export function QuickAdd({ onAdd, type = 'employee' }: QuickAddProps) {
   //manejo de areas
   const [areas, setAreas] = useState<string[]>([]);
   //manejo de carga
-  const [isLoading, setIsLoading]=useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(()=>{
+  useEffect(() => {
 
-    async function SearchData(){
-      const response=await fetch(import.meta.env.VITE_API_URL);
+    async function SearchData() {
+      const response = await fetch(import.meta.env.VITE_API_URL);
       const data = await response.json();
       setAreas(data.map((item: { NombreArea: string }) => item.NombreArea));
       setIsLoading(false);
     }
     SearchData();
-  },[])
+  }, [])
 
   const handleChange = (field: string, value: string) => {
     setFormData({ ...formData, [field]: value });
@@ -70,7 +84,7 @@ export function QuickAdd({ onAdd, type = 'employee' }: QuickAddProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (type === 'employee') {
       const employee: Employee = {
         cedula: formData.cedula,
@@ -142,8 +156,8 @@ export function QuickAdd({ onAdd, type = 'employee' }: QuickAddProps) {
                 }
               }}
             />
-            <Button 
-              type="button" 
+            <Button
+              type="button"
               onClick={handleAddArea}
               variant="outline"
               disabled={!currentArea.trim()}
